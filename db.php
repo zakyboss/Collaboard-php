@@ -1,14 +1,21 @@
 <?php
-// File: Back-end/db.php
+// File: Collaboard-php/db.php
 
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
+header("Content-Type: application/json");
 
-// Your PostgreSQL URL from Railway
-$databaseUrl = "postgresql://postgres:AKiPkfkcWRKrZzAdbyfJPDFEnOXbuqnG@postgres.railway.internal:5432/railway";
+// Use Railway PostgreSQL connection URL
+$databaseUrl = getenv("DATABASE_URL") ?: "postgresql://postgres:AKiPkfkcWRKrZzAdbyfJPDFEnOXbuqnG@yamabiko.proxy.rlwy.net:54022/railway";
 
-// Parse the URL
+// Parse connection URL
 $db = parse_url($databaseUrl);
+
+if (!$db) {
+    http_response_code(500);
+    die(json_encode(["success" => false, "message" => "Invalid database URL!"]));
+}
+
 $host = $db["host"];
 $port = $db["port"];
 $user = $db["user"];
@@ -19,8 +26,10 @@ $dbname = ltrim($db["path"], "/");
 $conn = pg_connect("host=$host port=$port dbname=$dbname user=$user password=$pass");
 
 if (!$conn) {
-    die(json_encode(["success" => false, "message" => "Database connection failed!"]));
-} else {
-    echo json_encode(["success" => true, "message" => "Database connected!"]);
+    http_response_code(500);
+    die(json_encode(["success" => false, "message" => "Database connection failed: " . pg_last_error()]));
 }
+
+// Success Response (Optional)
+echo json_encode(["success" => true, "message" => "Database connected successfully!"]);
 ?>

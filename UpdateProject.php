@@ -1,5 +1,5 @@
 <?php
-// File: Back-end/UpdateProject.php
+// File: Collaboard-php/Volunteer.php
 
 header("Access-Control-Allow-Origin: *");
 header("Content-Type: application/json; charset=UTF-8");
@@ -10,7 +10,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit(0);
 }
 
-require_once 'db.php';
+require_once __DIR__ . '/db.php';
 
 $response = ["success" => false, "message" => ""];
 
@@ -20,47 +20,36 @@ try {
         throw new Exception("No data received.");
     }
 
-    $proj_id     = isset($data["proj_id"]) ? intval($data["proj_id"]) : 0;
-    $projectName = isset($data["projectName"]) ? trim($data["projectName"]) : "";
-    $description = isset($data["description"]) ? trim($data["description"]) : "";
-    $tasks       = isset($data["tasks"]) ? $data["tasks"] : [];
+    $proj_id = intval($data["proj_id"] ?? 0);
+    $user_id = intval($data["user_id"] ?? 0);
+    $github_username = htmlspecialchars(trim($data["github_username"] ?? ""));
+    $task_id = isset($data["task_id"]) ? intval($data["task_id"]) : null;
 
-    if ($proj_id <= 0) {
-        throw new Exception("Invalid project ID.");
+    if ($proj_id <= 0 || $user_id <= 0 || empty($github_username)) {
+        throw new Exception("Invalid volunteer data.");
     }
 
-    // Update project name and description
-    $stmt = $conn->prepare("UPDATE collaboardtable_projects SET proj_name = ?, description = ? WHERE proj_id = ?");
-    $stmt->bind_param("ssi", $projectName, $description, $proj_id);
-    if (!$stmt->execute()) {
-        throw new Exception("Failed to update project.");
-    }
-    $stmt->close();
-
-    // Remove old tasks
-    $deleteStmt = $conn->prepare("DELETE FROM collaboardtable_tasks WHERE proj_id = ?");
-    $deleteStmt->bind_param("i", $proj_id);
-    $deleteStmt->execute();
-    $deleteStmt->close();
-
-    // Insert updated tasks
-    foreach ($tasks as $task) {
-        $taskName = isset($task['task_name']) ? trim($task['task_name']) : "";
-        $duration = isset($task['duration']) ? trim($task['duration']) : "";
-        if (!empty($taskName)) {
-            $insertStmt = $conn->prepare("INSERT INTO collaboardtable_tasks (proj_id, task_name, duration) VALUES (?, ?, ?)");
-            $insertStmt->bind_param("iss", $proj_id, $taskName, $duration);
-            $insertStmt->execute();
-            $insertStmt->close();
-        }
+    $queryCheck = "SELECT volunteer_id FROM collaboardtable_volunteers WHERE proj_id = $1 AND user_id = $2 LIMIT 1";
+    $resultCheck = pg_query_params($conn, $queryCheck, [$proj_id, $user_id]);
+    
+    if (pg_num_rows($resultCheck) > 0) {
+        throw new Exception("You have already volunteered for this project.");
     }
 
-    $response["success"] = true;
-    $response["message"] = "Project updated successfully!";
+    $queryInsert = "INSERT INTO collaboardtable_volunteers (proj_id, user_id, github_username, task_id) VALUES ($1, $2, $3, $4)";
+    $resultInsert = pg_query_params($conn, $queryInsert, [$proj_id, $user_id, $github_username, $task_id]);
+
+    if (!$resultInsert) {
+        throw new Exception("Failed to submit volunteer request.");
+    }
+
+    $response = ["success" => true, "message" => "Volunteer request submitted!"];
 } catch (Exception $e) {
+    http_response_code(400);
     $response["message"] = $e->getMessage();
 }
 
 echo json_encode($response);
-$conn->close();
+pg_close($conn);
 exit();
+?>
