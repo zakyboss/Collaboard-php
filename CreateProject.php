@@ -21,9 +21,8 @@ try {
     $tasks           = json_decode($tasksJSON, true);
     $devNeeded       = isset($_POST['devNeeded']) ? (int)$_POST['devNeeded'] : 1;
     $daysToComplete  = isset($_POST['daysToComplete']) ? (int)$_POST['daysToComplete'] : 30;
+    $userId          = isset($_POST['userId']) ? (int)$_POST['userId'] : 0;
 
-    // The user ID from the frontend
-    $userId = isset($_POST['userId']) ? (int)$_POST['userId'] : 0;
     if ($userId <= 0) {
         throw new Exception("You must be logged in to create a project.");
     }
@@ -71,27 +70,20 @@ try {
     }
 
     // Insert into collaboardtable_projects
-    $stmt = $conn->prepare("
-        INSERT INTO collaboardtable_projects
+    $query = "
+        INSERT INTO collaboardtable_projects 
         (user_id, proj_name, description, thumbnail, dev_needed, days_to_complete, pdf_file)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-    ");
-    $stmt->bind_param("isssiis",
-        $userId,
-        $projectName,
-        $description,
-        $thumbnailName,
-        $devNeeded,
-        $daysToComplete,
-        $pdfFileName
-    );
+        VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING proj_id
+    ";
+    $params = [$userId, $projectName, $description, $thumbnailName, $devNeeded, $daysToComplete, $pdfFileName];
+    $result = pg_query_params($conn, $query, $params);
 
-    if (!$stmt->execute()) {
+    if (!$result) {
         throw new Exception("Failed to create project. Please try again.");
     }
 
-    $projectId = $stmt->insert_id;
-    $stmt->close();
+    $row = pg_fetch_assoc($result);
+    $projectId = $row['proj_id'];
 
     // Insert tasks
     if (is_array($tasks)) {
@@ -99,13 +91,11 @@ try {
             $taskName = isset($task['task_name']) ? trim($task['task_name']) : "";
             $duration = isset($task['duration']) ? trim($task['duration']) : "";
             if (!empty($taskName)) {
-                $stmtTask = $conn->prepare("
+                $taskQuery = "
                     INSERT INTO collaboardtable_tasks (proj_id, task_name, duration)
-                    VALUES (?, ?, ?)
-                ");
-                $stmtTask->bind_param("iss", $projectId, $taskName, $duration);
-                $stmtTask->execute();
-                $stmtTask->close();
+                    VALUES ($1, $2, $3)
+                ";
+                pg_query_params($conn, $taskQuery, [$projectId, $taskName, $duration]);
             }
         }
     }
@@ -117,5 +107,5 @@ try {
 }
 
 echo json_encode($response);
-$conn->close();
+pg_close($conn);
 exit();
