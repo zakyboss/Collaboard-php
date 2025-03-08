@@ -4,22 +4,13 @@
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
-// Your PostgreSQL URL from Railway
-$databaseUrl = "postgresql://postgres:AKiPkfkcWRKrZzAdbyfJPDFEnOXbuqnG@postgres.railway.internal:5432/railway";
+$host = "sql206.infinityfree.com";
+$username = "if0_38433489";
+$password = "2weZpLIPN2O8";
+$database = "if0_38433489_collaboard";
 
-// Parse the URL
-$db = parse_url($databaseUrl);
-$host = $db["host"];
-$port = $db["port"];
-$user = $db["user"];
-$pass = $db["pass"];
-$dbname = ltrim($db["path"], "/");
-
-// Connect to PostgreSQL
-$conn = pg_connect("host=$host port=$port dbname=$dbname user=$user password=$pass");
-
-if (!$conn) {
+$conn = new mysqli($host, $username, $password, $database);
+if ($conn->connect_error) {
     die(json_encode(["success" => false, "message" => "Database connection failed!"]));
-} else {
-    echo json_encode(["success" => true, "message" => "Database connected!"]);
 }
+$conn->set_charset("utf8");
