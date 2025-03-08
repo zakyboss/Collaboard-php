@@ -21,3 +21,4 @@ if (!$conn) {
 
 // Success message
 echo json_encode(["success" => true, "message" => "Database connected successfully!"]);
+?>
