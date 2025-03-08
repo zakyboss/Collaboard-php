@@ -27,8 +27,8 @@ if (!filter_var($email, FILTER_VALIDATE_EMAIL) || empty($password) || empty($fir
 // Hash the password
 $hashedPassword = password_hash($password, PASSWORD_BCRYPT);
 
-// Check if the email already exists
-$checkQuery = "SELECT id FROM users WHERE email = $1";
+// Check if the email already exists using the correct table name
+$checkQuery = "SELECT id FROM collaboardtable_users WHERE email = $1";
 $checkResult = pg_query_params($conn, $checkQuery, [$email]);
 
 if (pg_num_rows($checkResult) > 0) {
@@ -37,8 +37,8 @@ if (pg_num_rows($checkResult) > 0) {
     exit();
 }
 
-// Insert user into the database
-$query = "INSERT INTO users (first_name, last_name, email, password) VALUES ($1, $2, $3, $4) RETURNING id";
+// Insert user into the database with the correct table name
+$query = "INSERT INTO collaboardtable_users (first_name, last_name, email, password) VALUES ($1, $2, $3, $4) RETURNING id";
 $result = pg_query_params($conn, $query, [$first_name, $last_name, $email, $hashedPassword]);
 
 if ($result) {
@@ -46,7 +46,8 @@ if ($result) {
     echo json_encode(["success" => true, "message" => "User registered successfully!", "user_id" => $row["id"]]);
 } else {
     http_response_code(500);
-    echo json_encode(["success" => false, "message" => "Signup failed!"]);
+    // Optionally include the error message for debugging purposes (remove in production)
+    echo json_encode(["success" => false, "message" => "Signup failed! Error: " . pg_last_error($conn)]);
 }
 
 // Close database connection
