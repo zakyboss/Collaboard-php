@@ -4,13 +4,16 @@
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
-$host = "sql206.infinityfree.com";
-$username = "if0_38433489";
-$password = "2weZpLIPN2O8";
-$database = "if0_38433489_collaboard";
+$host = "yamabiko.proxy.rlwy.net";  // Railway PostgreSQL Host
+$port = "54022";                     // Railway PostgreSQL Port
+$dbname = "railway";                 // Railway Database Name
+$user = "postgres";                   // Railway PostgreSQL Username
+$password = "Zakyboss";                // Railway PostgreSQL Password (Check Railway Variables)
 
-$conn = new mysqli($host, $username, $password, $database);
-if ($conn->connect_error) {
-    die(json_encode(["success" => false, "message" => "Database connection failed!"]));
+// Connect to PostgreSQL
+$conn = pg_connect("host=$host port=$port dbname=$dbname user=$user password=$password");
+
+if (!$conn) {
+    die(json_encode(["success" => false, "message" => "Database connection failed: " . pg_last_error()]));
 }
-$conn->set_charset("utf8");
+?>
