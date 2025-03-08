@@ -4,7 +4,7 @@
 header("Access-Control-Allow-Origin: *");
 header("Access-Control-Allow-Methods: POST, OPTIONS");
 header("Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With");
-header("Content-Type: application/json"); // Add this header to ensure JSON response
+header("Content-Type: application/json"); // Ensure JSON response
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit(0);
@@ -43,8 +43,8 @@ if (!filter_var($email, FILTER_VALIDATE_EMAIL) || empty($password) || empty($fir
 // Hash the password
 $hashedPassword = password_hash($password, PASSWORD_BCRYPT);
 
-// Check if the email already exists using the correct table name
-$checkQuery = "SELECT id FROM collaboardtable_users WHERE email = $1";
+// Check if the email already exists using the correct table name and column name "user_id"
+$checkQuery = "SELECT user_id FROM collaboardtable_users WHERE email = $1";
 $checkResult = pg_query_params($conn, $checkQuery, [$email]);
 
 if (pg_num_rows($checkResult) > 0) {
@@ -53,13 +53,13 @@ if (pg_num_rows($checkResult) > 0) {
     exit();
 }
 
-// Insert user into the database with the correct table name
-$query = "INSERT INTO collaboardtable_users (first_name, last_name, email, password) VALUES ($1, $2, $3, $4) RETURNING id";
+// Insert user into the database using the correct column name "user_id"
+$query = "INSERT INTO collaboardtable_users (first_name, last_name, email, password) VALUES ($1, $2, $3, $4) RETURNING user_id";
 $result = pg_query_params($conn, $query, [$first_name, $last_name, $email, $hashedPassword]);
 
 if ($result) {
     $row = pg_fetch_assoc($result);
-    echo json_encode(["success" => true, "message" => "User registered successfully!", "user_id" => $row["id"]]);
+    echo json_encode(["success" => true, "message" => "User registered successfully!", "user_id" => $row["user_id"]]);
 } else {
     http_response_code(500);
     // Optionally include the error message for debugging purposes (remove in production)
