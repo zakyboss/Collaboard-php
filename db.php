@@ -23,7 +23,4 @@ $conn = pg_connect("host=$host port=$port dbname=$dbname user=$user password=$pa
 
 if (!$conn) {
     die("❌ Database connection failed: " . pg_last_error());
-} else {
-    echo "✅ Database connected successfully!";
 }
-?>
