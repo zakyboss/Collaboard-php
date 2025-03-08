@@ -11,17 +11,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 
 require_once __DIR__ . '/db.php';
 
-// Read the incoming JSON data
-$data = json_decode(file_get_contents("php://input"), true);
-$response = ["success" => false, "message" => ""];
+// Read inputs from $_POST (since we're using FormData)
+$first_name = htmlspecialchars(trim($_POST["firstName"] ?? ""));
+$last_name = htmlspecialchars(trim($_POST["lastName"] ?? ""));
+$email = filter_var($_POST["email"] ?? "", FILTER_SANITIZE_EMAIL);
+$password = trim($_POST["password"] ?? "");
 
-// Validate and sanitize inputs
-$first_name = htmlspecialchars(trim($data["first_name"] ?? ""));
-$last_name = htmlspecialchars(trim($data["last_name"] ?? ""));
-$email = filter_var($data["email"] ?? "", FILTER_SANITIZE_EMAIL);
-$password = trim($data["password"] ?? "");
-
-// Check if input fields are valid
+// Validate inputs
 if (!filter_var($email, FILTER_VALIDATE_EMAIL) || empty($password) || empty($first_name) || empty($last_name)) {
     http_response_code(400);
     echo json_encode(["success" => false, "message" => "Invalid input data."]);
