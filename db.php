@@ -4,12 +4,26 @@ ini_set('display_errors', 1);
 
 header("Content-Type: application/json");
 
-// Get database credentials from Railway environment variables
+// Fetch environment variables
 $host = getenv("DB_HOST") ?: "yamabiko.proxy.rlwy.net";
 $port = getenv("DB_PORT") ?: "54022";
 $dbname = getenv("DB_NAME") ?: "railway";
 $user = getenv("DB_USER") ?: "postgres";
-$password = getenv("DB_PASSWORD") ?: "Zakyboss";  // Use Railway ENV variable
+$password = getenv("DB_PASSWORD");
+
+// Check if variables are set
+if (!$host || !$port || !$dbname || !$user || !$password) {
+    die(json_encode(["success" => false, "message" => "One or more database credentials are missing."]));
+}
+
+// Debugging - REMOVE after testing
+echo json_encode([
+    "host" => $host,
+    "port" => $port,
+    "dbname" => $dbname,
+    "user" => $user,
+    "password" => $password
+]);
 
 // Establish PostgreSQL connection
 $conn = pg_connect("host=$host port=$port dbname=$dbname user=$user password=$password");
@@ -21,4 +35,3 @@ if (!$conn) {
 
 // Success message
 echo json_encode(["success" => true, "message" => "Database connected successfully!"]);
-?>
