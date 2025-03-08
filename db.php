@@ -4,12 +4,12 @@ ini_set('display_errors', 1);
 
 header("Content-Type: application/json");
 
-// Get database credentials from environment variables
-$host = getenv("PGHOST") ?: "yamabiko.proxy.rlwy.net";
-$port = getenv("PGPORT") ?: "54022";
-$dbname = getenv("PGDATABASE") ?: "railway";
-$user = getenv("PGUSER") ?: "postgres";
-$password = getenv("PGPASSWORD") ?: "your_actual_password_here";  // Replace with Railway ENV variable
+// Get database credentials from Railway environment variables
+$host = getenv("DB_HOST") ?: "yamabiko.proxy.rlwy.net";
+$port = getenv("DB_PORT") ?: "54022";
+$dbname = getenv("DB_NAME") ?: "railway";
+$user = getenv("DB_USER") ?: "postgres";
+$password = getenv("DB_PASSWORD") ?: "Zakyboss@15081";  // Use Railway ENV variable
 
 // Establish PostgreSQL connection
 $conn = pg_connect("host=$host port=$port dbname=$dbname user=$user password=$password");
@@ -19,6 +19,6 @@ if (!$conn) {
     die(json_encode(["success" => false, "message" => "Database connection failed: " . pg_last_error()]));
 }
 
-// Success message (for debugging, remove in production)
+// Success message
 echo json_encode(["success" => true, "message" => "Database connected successfully!"]);
 ?>
