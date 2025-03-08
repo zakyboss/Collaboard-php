@@ -1,7 +1,3 @@
 #!/bin/bash
-if [ -z "$PORT" ]; then
-  echo "Error: PORT is not set. Using default port 8080."
-  PORT=8080
-fi
-
-php -S 0.0.0.0:$PORT -t .
+echo "🚀 Starting PHP Server on port $PORT..."
+php -S 0.0.0.0:$PORT -t . 2>&1 | tee server.log
