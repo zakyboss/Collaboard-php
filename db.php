@@ -1,22 +1,18 @@
 <?php
-// Enable error reporting for debugging
+// File: Back-end/db.php
+
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
-// Get the DATABASE_URL from Railway environment variables
-$database_url = getenv("DATABASE_URL");
+$host = "postgres.railway.internal";  // Railway PostgreSQL Host
+$port = "5432";                     // Railway PostgreSQL Port
+$dbname = "railway";                 // Railway Database Name
+$user = "postgres";                   // Railway PostgreSQL Username
+$password = "AKiPkfkcWRKrZzAdbyfJPDFEnOXbuqnG";                // Railway PostgreSQL Password (Check Railway Variables)
 
-if (!$database_url) {
-    die(json_encode(["success" => false, "message" => "DATABASE_URL not found in environment variables."]));
-}
-
-// Convert DATABASE_URL to correct format for pg_connect
-$database_url = str_replace("postgresql://", "postgres://", $database_url); // Fix URL format if needed
-$conn = pg_connect($database_url);
+// Connect to PostgreSQL
+$conn = pg_connect("host=$host port=$port dbname=$dbname user=$user password=$password");
 
 if (!$conn) {
     die(json_encode(["success" => false, "message" => "Database connection failed: " . pg_last_error()]));
-} else {
-    echo json_encode(["success" => true, "message" => "Database connection successful"]);
 }
-?>
