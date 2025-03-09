@@ -43,8 +43,10 @@ $password   = trim($data["password"] ?? "");
 $years_of_experience = trim($data["yearsOfExperience"] ?? "");
 
 // Validate required inputs
-if (empty($username) || empty($first_name) || empty($last_name) || 
-    !filter_var($email, FILTER_VALIDATE_EMAIL) || empty($password)) {
+if (
+    empty($username) || empty($first_name) || empty($last_name) ||
+    !filter_var($email, FILTER_VALIDATE_EMAIL) || empty($password)
+) {
     http_response_code(400);
     echo json_encode(["success" => false, "message" => "Invalid input data."]);
     exit();
@@ -104,3 +106,4 @@ if ($result) {
 
 pg_close($conn);
 exit();
+?>
