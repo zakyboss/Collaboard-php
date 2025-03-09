@@ -16,7 +16,7 @@ require_once __DIR__ . '/db.php';
 $data = json_decode(file_get_contents("php://input"), true);
 $response = ["success" => false, "message" => ""];
 
-// Extract and validate inputs
+// Extract and validate inputs (identifier can be email or username)
 $identifier = trim($data["identifier"] ?? "");
 $password   = trim($data["password"] ?? "");
 
@@ -26,9 +26,9 @@ if (empty($identifier) || empty($password)) {
     exit;
 }
 
-// Prepare SQL to match either email OR username
+// Prepare SQL to match either email OR username; include additional fields as needed
 $query = "
-    SELECT user_id, username, first_name, last_name, email, password
+    SELECT user_id, username, first_name, last_name, email, profile_photo, years_of_experience, password
     FROM collaboardtable_users
     WHERE email = $1 OR username = $1
 ";
@@ -44,15 +44,19 @@ if ($result === false) {
 if ($row = pg_fetch_assoc($result)) {
     // Verify password
     if (password_verify($password, $row["password"])) {
+        // Build the full user data object with every detail fetched from the database.
         $response = [
             "success" => true,
             "message" => "Login successful!",
             "userData" => [
-                "id"        => (int) $row["user_id"],
-                "username"  => htmlspecialchars($row["username"]),
-                "firstName" => htmlspecialchars($row["first_name"]),
-                "lastName"  => htmlspecialchars($row["last_name"]),
-                "email"     => htmlspecialchars($row["email"])
+                "id"                => (int) $row["user_id"],
+                "username"          => htmlspecialchars($row["username"]),
+                "firstName"         => htmlspecialchars($row["first_name"]),
+                "lastName"          => htmlspecialchars($row["last_name"]),
+                "email"             => htmlspecialchars($row["email"]),
+                "profilePhoto"      => isset($row["profile_photo"]) ? $row["profile_photo"] : null,
+                "yearsOfExperience" => isset($row["years_of_experience"]) ? $row["years_of_experience"] : null
+                // Add any additional fields as needed
             ]
         ];
     } else {
@@ -66,3 +70,4 @@ if ($row = pg_fetch_assoc($result)) {
 http_response_code(200);
 echo json_encode($response, JSON_UNESCAPED_UNICODE);
 exit;
+?>
