@@ -1,4 +1,6 @@
 <?php
+// File: Collaboard-php/Login.php
+
 header("Access-Control-Allow-Origin: *");
 header("Access-Control-Allow-Methods: POST, OPTIONS");
 header("Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With");
@@ -10,22 +12,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 
 require_once __DIR__ . '/db.php';
 
+// Decode JSON input
 $data = json_decode(file_get_contents("php://input"), true);
 $response = ["success" => false, "message" => ""];
 
-// Validate email and password input
-$email = filter_var($data["email"] ?? "", FILTER_SANITIZE_EMAIL);
-$password = $data["password"] ?? "";
+// Extract and validate inputs
+$identifier = trim($data["identifier"] ?? "");
+$password   = trim($data["password"] ?? "");
 
-if (!filter_var($email, FILTER_VALIDATE_EMAIL) || empty($password)) {
+if (empty($identifier) || empty($password)) {
     http_response_code(400);
-    echo json_encode(["success" => false, "message" => "Invalid email or password."]);
+    echo json_encode(["success" => false, "message" => "Please provide username/email and password."]);
     exit;
 }
 
-// Secure query execution
-$query = "SELECT id, first_name, last_name, email, password FROM users WHERE email = $1::text";
-$result = pg_query_params($conn, $query, [$email]);
+// Prepare SQL to match either email OR username
+$query = "
+    SELECT user_id, username, first_name, last_name, email, password
+    FROM collaboardtable_users
+    WHERE email = $1 OR username = $1
+";
+$result = pg_query_params($conn, $query, [$identifier]);
 
 if ($result === false) {
     http_response_code(500);
@@ -33,16 +40,19 @@ if ($result === false) {
     exit;
 }
 
+// Check if user was found
 if ($row = pg_fetch_assoc($result)) {
+    // Verify password
     if (password_verify($password, $row["password"])) {
         $response = [
             "success" => true,
             "message" => "Login successful!",
             "userData" => [
-                "id" => (int) $row["id"],
+                "id"        => (int) $row["user_id"],
+                "username"  => htmlspecialchars($row["username"]),
                 "firstName" => htmlspecialchars($row["first_name"]),
-                "lastName" => htmlspecialchars($row["last_name"]),
-                "email" => htmlspecialchars($row["email"])
+                "lastName"  => htmlspecialchars($row["last_name"]),
+                "email"     => htmlspecialchars($row["email"])
             ]
         ];
     } else {
@@ -52,7 +62,7 @@ if ($row = pg_fetch_assoc($result)) {
     $response["message"] = "User not found.";
 }
 
+// Return JSON response
 http_response_code(200);
 echo json_encode($response, JSON_UNESCAPED_UNICODE);
 exit;
-?>
