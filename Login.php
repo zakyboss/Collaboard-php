@@ -22,17 +22,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 // Include database connection
 require_once __DIR__ . '/db.php';
 
-// For debugging (remove in production)
-error_log("Login.php accessed");
-
 // Decode JSON input
 $content = file_get_contents("php://input");
-error_log("Received data: " . $content);
 $data = json_decode($content, true);
 
 if (!is_array($data)) {
     $data = [];
-    error_log("Invalid JSON data received");
 }
 
 $response = ["success" => false, "message" => ""];
@@ -40,8 +35,6 @@ $response = ["success" => false, "message" => ""];
 // Extract and validate inputs (identifier can be email or username)
 $identifier = trim($data["identifier"] ?? "");
 $password   = trim($data["password"] ?? "");
-
-error_log("Login attempt with identifier: " . $identifier);
 
 if (empty($identifier) || empty($password)) {
     http_response_code(400);
@@ -51,8 +44,9 @@ if (empty($identifier) || empty($password)) {
 
 try {
     // Prepare SQL to match either email OR username
+    // IMPORTANT: Changed to profile_picture (not profile_photo)
     $query = "
-        SELECT user_id, username, first_name, last_name, email, profile_photo, years_of_experience, password
+        SELECT user_id, username, first_name, last_name, email, profile_picture, years_of_experience, password
         FROM collaboardtable_users
         WHERE email = $1 OR username = $1
     ";
@@ -60,7 +54,6 @@ try {
     $result = pg_query_params($conn, $query, [$identifier]);
     
     if ($result === false) {
-        error_log("Database query failed: " . pg_last_error($conn));
         http_response_code(500);
         echo json_encode(["success" => false, "message" => "Database query failed."]);
         exit;
@@ -79,7 +72,7 @@ try {
                     "firstName"         => htmlspecialchars($row["first_name"]),
                     "lastName"          => htmlspecialchars($row["last_name"]),
                     "email"             => htmlspecialchars($row["email"]),
-                    "profilePhoto"      => isset($row["profile_photo"]) ? $row["profile_photo"] : null,
+                    "profilePhoto"      => isset($row["profile_picture"]) ? $row["profile_picture"] : null,
                     "yearsOfExperience" => isset($row["years_of_experience"]) ? (int)$row["years_of_experience"] : null
                 ]
             ];
@@ -90,7 +83,6 @@ try {
         $response["message"] = "User not found.";
     }
 } catch (Exception $e) {
-    error_log("Error in Login.php: " . $e->getMessage());
     http_response_code(500);
     echo json_encode(["success" => false, "message" => "An error occurred during login."]);
     exit;
