@@ -1,9 +1,9 @@
 <?php
 // File: Collaboard-php/Signup.php
 
-// Enable error reporting (development only)
 require_once 'db.php';
 
+// Enable error reporting (development only)
 ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
@@ -17,8 +17,6 @@ header("Content-Type: application/json"); // Ensure JSON response
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit(0);
 }
-
-// require_once __DIR__ . '/db.php';
 
 // Determine the content type of the request
 $contentType = isset($_SERVER["CONTENT_TYPE"]) ? trim($_SERVER["CONTENT_TYPE"]) : '';
@@ -37,6 +35,7 @@ if (strpos($contentType, 'application/json') !== false) {
 error_log("Signup.php received data: " . print_r($data, true));
 
 // Read and sanitize input data
+$username   = htmlspecialchars(trim($data["username"] ?? ""));
 $first_name = htmlspecialchars(trim($data["firstName"] ?? ""));
 $last_name  = htmlspecialchars(trim($data["lastName"] ?? ""));
 $email      = filter_var($data["email"] ?? "", FILTER_SANITIZE_EMAIL);
@@ -44,7 +43,8 @@ $password   = trim($data["password"] ?? "");
 $years_of_experience = trim($data["yearsOfExperience"] ?? "");
 
 // Validate required inputs
-if (!filter_var($email, FILTER_VALIDATE_EMAIL) || empty($password) || empty($first_name) || empty($last_name)) {
+if (empty($username) || empty($first_name) || empty($last_name) || 
+    !filter_var($email, FILTER_VALIDATE_EMAIL) || empty($password)) {
     http_response_code(400);
     echo json_encode(["success" => false, "message" => "Invalid input data."]);
     exit();
@@ -75,10 +75,17 @@ if (pg_num_rows($checkResult) > 0) {
     exit();
 }
 
-// Insert user into the database, including years_of_experience
-$query = "INSERT INTO collaboardtable_users (first_name, last_name, email, password, years_of_experience)
-          VALUES ($1, $2, $3, $4, $5) RETURNING user_id";
-$result = pg_query_params($conn, $query, [$first_name, $last_name, $email, $hashedPassword, $years_of_experience]);
+// Insert user into the database, including username
+$query = "INSERT INTO collaboardtable_users (username, first_name, last_name, email, password, years_of_experience)
+          VALUES ($1, $2, $3, $4, $5, $6) RETURNING user_id";
+$result = pg_query_params($conn, $query, [
+    $username,
+    $first_name,
+    $last_name,
+    $email,
+    $hashedPassword,
+    $years_of_experience
+]);
 
 if ($result) {
     $row = pg_fetch_assoc($result);
