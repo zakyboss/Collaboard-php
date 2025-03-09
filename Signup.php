@@ -11,17 +11,17 @@ header("Access-Control-Allow-Methods: POST, OPTIONS");
 header("Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With");
 header("Content-Type: application/json"); // Ensure JSON response
 
-// Allow preflight OPTIONS request to exit early
+// Handle preflight OPTIONS request
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit(0);
 }
 
 require_once __DIR__ . '/db.php';
 
-// Determine the Content-Type of the request
+// Determine the content type of the request
 $contentType = isset($_SERVER["CONTENT_TYPE"]) ? trim($_SERVER["CONTENT_TYPE"]) : '';
 
-// Read inputs: supports both JSON and multipart/form-data
+// Read the input data based on the Content-Type header
 if (strpos($contentType, 'application/json') !== false) {
     $json = file_get_contents('php://input');
     $data = json_decode($json, true);
@@ -30,6 +30,9 @@ if (strpos($contentType, 'application/json') !== false) {
 } else {
     $data = $_POST;
 }
+
+// For debugging: log the input data (check your PHP error log)
+error_log("Signup.php received data: " . print_r($data, true));
 
 // Read and sanitize input data
 $first_name = htmlspecialchars(trim($data["firstName"] ?? ""));
