@@ -39,12 +39,25 @@ $first_name = htmlspecialchars(trim($data["firstName"] ?? ""));
 $last_name  = htmlspecialchars(trim($data["lastName"] ?? ""));
 $email      = filter_var($data["email"] ?? "", FILTER_SANITIZE_EMAIL);
 $password   = trim($data["password"] ?? "");
+$years_of_experience = trim($data["yearsOfExperience"] ?? "");
 
-// Validate inputs
+// Validate required inputs
 if (!filter_var($email, FILTER_VALIDATE_EMAIL) || empty($password) || empty($first_name) || empty($last_name)) {
     http_response_code(400);
     echo json_encode(["success" => false, "message" => "Invalid input data."]);
     exit();
+}
+
+// Convert years_of_experience to an integer if provided; otherwise set to NULL
+if ($years_of_experience === "") {
+    $years_of_experience = null;
+} else {
+    if (!is_numeric($years_of_experience)) {
+        http_response_code(400);
+        echo json_encode(["success" => false, "message" => "Invalid years of experience."]);
+        exit();
+    }
+    $years_of_experience = (int)$years_of_experience;
 }
 
 // Hash the password
@@ -60,16 +73,24 @@ if (pg_num_rows($checkResult) > 0) {
     exit();
 }
 
-// Insert user into the database
-$query  = "INSERT INTO collaboardtable_users (first_name, last_name, email, password) VALUES ($1, $2, $3, $4) RETURNING user_id";
-$result = pg_query_params($conn, $query, [$first_name, $last_name, $email, $hashedPassword]);
+// Insert user into the database, including years_of_experience
+$query = "INSERT INTO collaboardtable_users (first_name, last_name, email, password, years_of_experience)
+          VALUES ($1, $2, $3, $4, $5) RETURNING user_id";
+$result = pg_query_params($conn, $query, [$first_name, $last_name, $email, $hashedPassword, $years_of_experience]);
 
 if ($result) {
     $row = pg_fetch_assoc($result);
-    echo json_encode(["success" => true, "message" => "User registered successfully!", "user_id" => $row["user_id"]]);
+    echo json_encode([
+        "success" => true,
+        "message" => "User registered successfully!",
+        "user_id" => $row["user_id"]
+    ]);
 } else {
     http_response_code(500);
-    echo json_encode(["success" => false, "message" => "Signup failed! Error: " . pg_last_error($conn)]);
+    echo json_encode([
+        "success" => false,
+        "message" => "Signup failed! Error: " . pg_last_error($conn)
+    ]);
 }
 
 pg_close($conn);
