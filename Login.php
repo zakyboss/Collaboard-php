@@ -1,14 +1,16 @@
 <?php
 // File: Collaboard-php/Login.php
-ini_set('display_errors', 1);
-ini_set('display_startup_errors', 1);
-error_reporting(E_ALL);
-ini_set('html_errors', 0);
 
+// Disable error display for clean JSON responses
+ini_set('display_errors', 0);
+ini_set('display_startup_errors', 0);
+error_reporting(0);
+ini_set('html_errors', 0);
 
 header("Access-Control-Allow-Origin: *");
 header("Access-Control-Allow-Methods: POST, OPTIONS");
 header("Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With");
+header("Content-Type: application/json; charset=UTF-8");
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(200);
@@ -19,6 +21,9 @@ require_once __DIR__ . '/db.php';
 
 // Decode JSON input
 $data = json_decode(file_get_contents("php://input"), true);
+if (!is_array($data)) { 
+    $data = []; 
+}
 $response = ["success" => false, "message" => ""];
 
 // Extract and validate inputs (identifier can be email or username)
@@ -31,7 +36,7 @@ if (empty($identifier) || empty($password)) {
     exit;
 }
 
-// Prepare SQL to match either email OR username; include additional fields as needed
+// Prepare SQL to match either email OR username
 $query = "
     SELECT user_id, username, first_name, last_name, email, profile_photo, years_of_experience, password
     FROM collaboardtable_users
@@ -49,7 +54,6 @@ if ($result === false) {
 if ($row = pg_fetch_assoc($result)) {
     // Verify password
     if (password_verify($password, $row["password"])) {
-        // Build the full user data object with every detail fetched from the database.
         $response = [
             "success" => true,
             "message" => "Login successful!",
@@ -61,7 +65,6 @@ if ($row = pg_fetch_assoc($result)) {
                 "email"             => htmlspecialchars($row["email"]),
                 "profilePhoto"      => isset($row["profile_photo"]) ? $row["profile_photo"] : null,
                 "yearsOfExperience" => isset($row["years_of_experience"]) ? $row["years_of_experience"] : null
-                // Add any additional fields as needed
             ]
         ];
     } else {
@@ -71,7 +74,6 @@ if ($row = pg_fetch_assoc($result)) {
     $response["message"] = "User not found.";
 }
 
-// Return JSON response
 http_response_code(200);
 echo json_encode($response, JSON_UNESCAPED_UNICODE);
 exit;
