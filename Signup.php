@@ -66,7 +66,7 @@ if ($years_of_experience === "") {
 $profile_picture = null;
 if ($profilePhotoFile && $profilePhotoFile['error'] === UPLOAD_ERR_OK) {
     // Create an uploads directory if it doesn't exist
-    $uploadDir = __DIR__ . '/uploads';
+    $uploadDir = __DIR__ . '/ProfileUploads';
     if (!is_dir($uploadDir)) {
         mkdir($uploadDir, 0777, true);
     }
