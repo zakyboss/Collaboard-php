@@ -10,7 +10,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit(0);
 }
 
-require_once 'db.php';
+require_once 'db.php'; // Make sure db.php connects via pg_connect or similar
 
 $response = ["success" => false, "message" => ""];
 
@@ -26,12 +26,11 @@ try {
     if ($userId <= 0) {
         throw new Exception("You must be logged in to create a project.");
     }
-
     if (empty($projectName) || empty($description)) {
         throw new Exception("Project name and description are required.");
     }
 
-    // Thumbnail upload
+    // 1) Handle thumbnail upload if provided
     $thumbnailName = null;
     if (isset($_FILES['thumbnail']) && $_FILES['thumbnail']['error'] === UPLOAD_ERR_OK) {
         $tmpName      = $_FILES['thumbnail']['tmp_name'];
@@ -42,15 +41,15 @@ try {
             mkdir($targetDir, 0777, true);
         }
 
-        $uniqueName  = time() . "_" . preg_replace("/[^a-zA-Z0-9_\.-]/", "_", $originalName);
-        $targetFile  = $targetDir . $uniqueName;
+        $uniqueName = time() . "_" . preg_replace("/[^a-zA-Z0-9_\.-]/", "_", $originalName);
+        $targetFile = $targetDir . $uniqueName;
 
         if (move_uploaded_file($tmpName, $targetFile)) {
             $thumbnailName = $uniqueName;
         }
     }
 
-    // PDF upload
+    // 2) Handle PDF upload if provided
     $pdfFileName = null;
     if (isset($_FILES['pdfFile']) && $_FILES['pdfFile']['error'] === UPLOAD_ERR_OK) {
         $tmpName      = $_FILES['pdfFile']['tmp_name'];
@@ -61,41 +60,56 @@ try {
             mkdir($targetDir, 0777, true);
         }
 
-        $uniqueName  = time() . "_" . preg_replace("/[^a-zA-Z0-9_\.-]/", "_", $originalName);
-        $targetFile  = $targetDir . $uniqueName;
+        $uniqueName = time() . "_" . preg_replace("/[^a-zA-Z0-9_\.-]/", "_", $originalName);
+        $targetFile = $targetDir . $uniqueName;
 
         if (move_uploaded_file($tmpName, $targetFile)) {
             $pdfFileName = $uniqueName;
         }
     }
 
-    // Insert into collaboardtable_projects
+    // 3) Insert into collaboardtable_projects
     $query = "
-        INSERT INTO collaboardtable_projects 
+        INSERT INTO collaboardtable_projects
         (user_id, proj_name, description, thumbnail, dev_needed, days_to_complete, pdf_file)
-        VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING proj_id
+        VALUES ($1, $2, $3, $4, $5, $6, $7)
+        RETURNING proj_id
     ";
-    $params = [$userId, $projectName, $description, $thumbnailName, $devNeeded, $daysToComplete, $pdfFileName];
+    $params = [
+        $userId,
+        $projectName,
+        $description,
+        $thumbnailName,
+        $devNeeded,
+        $daysToComplete,
+        $pdfFileName
+    ];
     $result = pg_query_params($conn, $query, $params);
 
     if (!$result) {
-        throw new Exception("Failed to create project. Please try again.");
+        throw new Exception("Failed to create project: " . pg_last_error($conn));
     }
 
-    $row = pg_fetch_assoc($result);
+    $row       = pg_fetch_assoc($result);
     $projectId = $row['proj_id'];
 
-    // Insert tasks
+    // 4) Insert tasks
     if (is_array($tasks)) {
         foreach ($tasks as $task) {
-            $taskName = isset($task['task_name']) ? trim($task['task_name']) : "";
-            $duration = isset($task['duration']) ? trim($task['duration']) : "";
+            $taskName        = isset($task['task_name'])        ? trim($task['task_name'])        : "";
+            $taskDescription = isset($task['task_description']) ? trim($task['task_description']) : "";
+
+            // Only insert if there's a task name
             if (!empty($taskName)) {
                 $taskQuery = "
-                    INSERT INTO collaboardtable_tasks (proj_id, task_name, duration)
+                    INSERT INTO collaboardtable_tasks (proj_id, task_name, task_description)
                     VALUES ($1, $2, $3)
                 ";
-                pg_query_params($conn, $taskQuery, [$projectId, $taskName, $duration]);
+                pg_query_params($conn, $taskQuery, [
+                    $projectId,
+                    $taskName,
+                    $taskDescription
+                ]);
             }
         }
     }

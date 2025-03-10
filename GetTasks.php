@@ -1,5 +1,5 @@
 <?php
-// File: Back-end/GetProjects.php
+// File: Back-end/GetTasks.php
 
 header("Access-Control-Allow-Origin: *");
 header("Content-Type: application/json; charset=UTF-8");
@@ -10,22 +10,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit(0);
 }
 
-require_once 'db.php';
+require_once 'db.php'; // Must define $conn as a pg_connect resource
 
-$response = ["projects" => []];
+$proj_id = isset($_GET['proj_id']) ? intval($_GET['proj_id']) : 0;
+$response = ["tasks" => []];
 
-$sql = "SELECT proj_id, user_id, proj_name, description, thumbnail, dev_needed,
-               days_to_complete, pdf_file, created
-        FROM collaboardtable_projects
-        ORDER BY proj_id DESC";
-$result = $conn->query($sql);
+if ($proj_id > 0) {
+    $sql = "
+        SELECT task_id, proj_id, task_name, task_description, status, priority, due_date, created_at
+        FROM collaboardtable_tasks
+        WHERE proj_id = $1
+        ORDER BY task_id ASC
+    ";
+    $result = pg_query_params($conn, $sql, [$proj_id]);
 
-if ($result && $result->num_rows > 0) {
-    while ($row = $result->fetch_assoc()) {
-        $response["projects"][] = $row;
+    if ($result) {
+        while ($row = pg_fetch_assoc($result)) {
+            $response["tasks"][] = $row;
+        }
     }
 }
 
 echo json_encode($response);
-$conn->close();
+pg_close($conn);
 exit();

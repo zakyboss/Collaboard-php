@@ -10,7 +10,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit(0);
 }
 
-require_once 'db.php';
+require_once 'db.php'; // Must define $conn as pg_connect(...)
 
 $response = ["success" => false, "message" => ""];
 
@@ -29,29 +29,29 @@ try {
         throw new Exception("Invalid volunteer data.");
     }
 
-    // Check if user already volunteered for this project
-    $stmtCheck = $conn->prepare("
+    // 1) Check if user already volunteered
+    $checkQuery  = "
         SELECT volunteer_id
         FROM collaboardtable_volunteers
-        WHERE proj_id = ? AND user_id = ?
+        WHERE proj_id = $1 AND user_id = $2
         LIMIT 1
-    ");
-    $stmtCheck->bind_param("ii", $proj_id, $user_id);
-    $stmtCheck->execute();
-    $stmtCheck->store_result();
-    if ($stmtCheck->num_rows > 0) {
+    ";
+    $checkResult = pg_query_params($conn, $checkQuery, [$proj_id, $user_id]);
+    if (!$checkResult) {
+        throw new Exception("Error checking existing volunteer: " . pg_last_error($conn));
+    }
+    if (pg_num_rows($checkResult) > 0) {
         throw new Exception("You have already volunteered for this project.");
     }
-    $stmtCheck->close();
 
-    // Insert new volunteer row
-    $stmt = $conn->prepare("
+    // 2) Insert new volunteer row
+    $insertQuery = "
         INSERT INTO collaboardtable_volunteers (proj_id, user_id, github_username, task_id)
-        VALUES (?, ?, ?, ?)
-    ");
-    $stmt->bind_param("iisi", $proj_id, $user_id, $github_username, $task_id);
-    if (!$stmt->execute()) {
-        throw new Exception("Failed to submit volunteer request.");
+        VALUES ($1, $2, $3, $4)
+    ";
+    $insertResult = pg_query_params($conn, $insertQuery, [$proj_id, $user_id, $github_username, $task_id]);
+    if (!$insertResult) {
+        throw new Exception("Failed to submit volunteer request: " . pg_last_error($conn));
     }
 
     $response["success"] = true;
@@ -61,5 +61,5 @@ try {
 }
 
 echo json_encode($response);
-$conn->close();
+pg_close($conn);
 exit();
