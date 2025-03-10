@@ -33,11 +33,14 @@ if ($proj_id > 0) {
     ";
 
     $result = pg_query_params($conn, $sql, [$proj_id]);
-
     if ($result) {
         while ($row = pg_fetch_assoc($result)) {
             $response["volunteers"][] = $row;
         }
+    } else {
+        // If pg_query_params fails, you can do:
+        // echo "Error: " . pg_last_error($conn);
+        // exit();
     }
 }
 
