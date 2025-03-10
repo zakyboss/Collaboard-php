@@ -1,5 +1,7 @@
 <?php
-// File: Back-end/GetVolunteers.php
+// Enable error reporting for debugging (remove in production)
+ini_set('display_errors', 1);
+error_reporting(E_ALL);
 
 header("Access-Control-Allow-Origin: *");
 header("Content-Type: application/json; charset=UTF-8");
@@ -10,7 +12,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit(0);
 }
 
-require_once 'db.php'; // must define $conn via pg_connect()
+require_once 'db.php'; // Ensure this file uses pg_connect to set $conn
 
 $proj_id = isset($_GET['proj_id']) ? intval($_GET['proj_id']) : 0;
 $response = ["volunteers" => []];
@@ -33,14 +35,15 @@ if ($proj_id > 0) {
     ";
 
     $result = pg_query_params($conn, $sql, [$proj_id]);
-    if ($result) {
-        while ($row = pg_fetch_assoc($result)) {
-            $response["volunteers"][] = $row;
-        }
-    } else {
-        // If pg_query_params fails, you can do:
-        // echo "Error: " . pg_last_error($conn);
-        // exit();
+    if (!$result) {
+        // Capture and output the PostgreSQL error for debugging
+        $error = pg_last_error($conn);
+        echo json_encode(["error" => $error]);
+        pg_close($conn);
+        exit();
+    }
+    while ($row = pg_fetch_assoc($result)) {
+        $response["volunteers"][] = $row;
     }
 }
 
