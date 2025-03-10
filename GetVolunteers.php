@@ -1,4 +1,6 @@
 <?php
+// File: Back-end/GetVolunteers.php
+
 // Enable error reporting for debugging (remove in production)
 ini_set('display_errors', 1);
 error_reporting(E_ALL);
@@ -38,10 +40,11 @@ if ($proj_id > 0) {
     if (!$result) {
         // Capture and output the PostgreSQL error for debugging
         $error = pg_last_error($conn);
-        echo json_encode(["error" => $error]);
+        echo json_encode(["success" => false, "error" => $error]);
         pg_close($conn);
         exit();
     }
+    
     while ($row = pg_fetch_assoc($result)) {
         $response["volunteers"][] = $row;
     }
