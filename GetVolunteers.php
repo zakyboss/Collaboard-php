@@ -1,5 +1,5 @@
 <?php
-// File: Back-end/GetVolunteers.php
+// File: GetVolunteers.php
 
 header("Access-Control-Allow-Origin: *");
 header("Content-Type: application/json; charset=UTF-8");
@@ -10,14 +10,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit(0);
 }
 
-require_once 'db.php'; // Ensure this file uses pg_connect to set $conn
+require_once 'db.php';
 
 $proj_id = isset($_GET['proj_id']) ? intval($_GET['proj_id']) : 0;
 $response = ["volunteers" => []];
 
 if ($proj_id > 0) {
-    // Use the correct column name from your users table:
-    // If it's "profile_picture", alias it as profile_photo for the frontend
     $sql = "
         SELECT v.volunteer_id,
                v.user_id,
@@ -36,7 +34,6 @@ if ($proj_id > 0) {
 
     $result = pg_query_params($conn, $sql, [$proj_id]);
     if (!$result) {
-        // Capture and output the PostgreSQL error for debugging
         $error = pg_last_error($conn);
         echo json_encode(["success" => false, "error" => $error]);
         pg_close($conn);
