@@ -27,22 +27,24 @@ try {
         throw new Exception("Invalid task ID.");
     }
 
-    $stmt = $conn->prepare("
+    // Use pg_query_params for PostgreSQL
+    $updateQuery = "
         UPDATE collaboardtable_tasks
-        SET is_done = ?
-        WHERE task_id = ?
-    ");
-    $stmt->bind_param("ii", $is_done, $task_id);
-    if (!$stmt->execute()) {
-        throw new Exception("Failed to update task status.");
+        SET is_done = $1
+        WHERE task_id = $2
+    ";
+    $result = pg_query_params($conn, $updateQuery, [$is_done, $task_id]);
+    if (!$result) {
+        throw new Exception('Failed to update task status: ' . pg_last_error($conn));
     }
 
     $response["success"] = true;
     $response["message"] = "Task status updated!";
 } catch (Exception $e) {
     $response["message"] = $e->getMessage();
+    http_response_code(400);
 }
 
 echo json_encode($response);
-$conn->close();
+pg_close($conn);
 exit();

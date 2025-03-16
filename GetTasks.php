@@ -16,8 +16,18 @@ $proj_id = isset($_GET['proj_id']) ? intval($_GET['proj_id']) : 0;
 $response = ["tasks" => []];
 
 if ($proj_id > 0) {
+    // Make sure we also select 'is_done' if you want to track done/undone tasks
     $sql = "
-        SELECT task_id, proj_id, task_name, task_description, status, priority, due_date, created_at
+        SELECT
+            task_id,
+            proj_id,
+            task_name,
+            task_description,
+            status,
+            priority,
+            due_date,
+            created_at,
+            is_done
         FROM collaboardtable_tasks
         WHERE proj_id = $1
         ORDER BY task_id ASC
