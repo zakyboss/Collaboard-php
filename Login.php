@@ -1,5 +1,5 @@
 <?php
-// File: Collaboard-php/Login.php
+// File: Login.php
 
 ini_set('display_errors', 0);
 ini_set('display_startup_errors', 0);
@@ -18,7 +18,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 
 require_once __DIR__ . '/db.php';
 
-// Decode JSON input
 $content = file_get_contents("php://input");
 $data = json_decode($content, true);
 if (!is_array($data)) {
@@ -27,7 +26,6 @@ if (!is_array($data)) {
 
 $response = ["success" => false, "message" => ""];
 
-// Extract login fields
 $identifier = trim($data["identifier"] ?? "");
 $password   = trim($data["password"] ?? "");
 
@@ -38,7 +36,6 @@ if (empty($identifier) || empty($password)) {
 }
 
 try {
-    // Match email OR username
     $query = "
         SELECT user_id, username, first_name, last_name, email, profile_picture, years_of_experience, password
         FROM collaboardtable_users
@@ -53,17 +50,12 @@ try {
     }
     
     if ($row = pg_fetch_assoc($result)) {
-        // Check password
         if (password_verify($password, $row["password"])) {
-            // Convert the bytea to base64
+            // Convert bytea to base64 data URI
             $profilePhoto = null;
             if (!empty($row["profile_picture"])) {
-                // 1) Unescape raw binary
                 $binaryData = pg_unescape_bytea($row["profile_picture"]);
-                // 2) Base64 encode
-                $base64 = base64_encode($binaryData);
-                // 3) Build a data URI
-                // If you know the file is PNG, use "image/png", or detect the mime type
+                $base64     = base64_encode($binaryData);
                 $profilePhoto = "data:image/png;base64," . $base64;
             }
 
@@ -76,7 +68,7 @@ try {
                     "firstName"         => htmlspecialchars($row["first_name"]),
                     "lastName"          => htmlspecialchars($row["last_name"]),
                     "email"             => htmlspecialchars($row["email"]),
-                    "profilePhoto"      => $profilePhoto, // data URI or null
+                    "profilePhoto"      => $profilePhoto,
                     "yearsOfExperience" => isset($row["years_of_experience"]) ? (int)$row["years_of_experience"] : null
                 ]
             ];
@@ -96,3 +88,4 @@ http_response_code(200);
 echo json_encode($response);
 pg_close($conn);
 exit;
+?>
