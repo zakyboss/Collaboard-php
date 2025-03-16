@@ -64,8 +64,7 @@ if ($profilePhotoFile && $profilePhotoFile['error'] === UPLOAD_ERR_OK) {
     // Read file contents
     $fileData = file_get_contents($profilePhotoFile['tmp_name']);
     // Escape for PostgreSQL
-    $escapedData = pg_escape_bytea($conn, $fileData);
-    $profile_picture_data = $escapedData; 
+    $profile_picture_data = pg_escape_bytea($conn, $fileData);
 }
 
 // 4) Hash password
@@ -80,7 +79,7 @@ if (pg_num_rows($checkResult) > 0) {
     exit();
 }
 
-// 6) Insert user with CASE WHEN for the image
+// 6) Insert user - FIXED: removed decode() which was causing the error
 $query = "
     INSERT INTO collaboardtable_users 
     (username, first_name, last_name, email, password, years_of_experience, profile_picture)
@@ -91,10 +90,10 @@ $query = "
       $4, 
       $5, 
       $6, 
-      CASE WHEN $7 IS NOT NULL THEN decode($7, 'escape') ELSE NULL END
+      $7
     )
-    RETURNING user_id
-";
+    RETURNING user_id ";
+
 $params = [
     $username,
     $first_name,
@@ -104,6 +103,7 @@ $params = [
     $years_of_experience,
     $profile_picture_data
 ];
+
 $result = pg_query_params($conn, $query, $params);
 
 if ($result) {
