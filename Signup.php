@@ -1,7 +1,6 @@
 <?php
 // File: Collaboard-php/Signup.php
 
-// Enable error reporting for debugging (remove or disable in production)
 ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
@@ -15,22 +14,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit(0);
 }
 
-require_once 'db.php'; // Ensure this file uses pg_connect() to set $conn
+require_once 'db.php'; // pg_connect()
 
-// Determine the content type to handle file uploads vs. JSON
+// 1) Detect if multipart/form-data or JSON
 $contentType = $_SERVER["CONTENT_TYPE"] ?? '';
-
 if (strpos($contentType, 'multipart/form-data') !== false) {
-    // When files are uploaded, data comes in via $_POST and $_FILES
     $data = $_POST;
     $profilePhotoFile = $_FILES['profilePhoto'] ?? null;
 } else {
-    // Otherwise, read JSON input
     $data = json_decode(file_get_contents('php://input'), true) ?: [];
     $profilePhotoFile = null;
 }
 
-// Extract and sanitize input fields
+// 2) Extract & validate fields
 $username   = htmlspecialchars(trim($data["username"] ?? ""));
 $first_name = htmlspecialchars(trim($data["firstName"] ?? ""));
 $last_name  = htmlspecialchars(trim($data["lastName"] ?? ""));
@@ -38,7 +34,6 @@ $email      = filter_var($data["email"] ?? "", FILTER_SANITIZE_EMAIL);
 $password   = trim($data["password"] ?? "");
 $years_of_experience = trim($data["yearsOfExperience"] ?? "");
 
-// Validate required fields
 if (
     empty($username) || 
     empty($first_name) || 
@@ -51,7 +46,6 @@ if (
     exit();
 }
 
-// Convert years_of_experience to an integer or set to null
 if ($years_of_experience === "") {
     $years_of_experience = null;
 } else {
@@ -63,30 +57,20 @@ if ($years_of_experience === "") {
     $years_of_experience = (int)$years_of_experience;
 }
 
-// Handle file upload for profile photo if provided
-$profile_picture = null;
+// 3) Read raw image data (if a file is provided)
+$profile_picture_data = null;
 if ($profilePhotoFile && $profilePhotoFile['error'] === UPLOAD_ERR_OK) {
-    // Create the uploads directory if it doesn't exist
-    $uploadDir = __DIR__ . '/ProfileUploads';
-    if (!is_dir($uploadDir)) {
-        mkdir($uploadDir, 0777, true);
-    }
-    
-    // Generate a unique filename and remove spaces (replace with underscores)
-    $originalName = basename($profilePhotoFile['name']);
-    $uniqueName = uniqid() . '_' . str_replace(' ', '_', $originalName);
-    $targetPath = $uploadDir . '/' . $uniqueName;
-    
-    // Move the file from the temporary location to the uploads folder
-    if (move_uploaded_file($profilePhotoFile['tmp_name'], $targetPath)) {
-        $profile_picture = $uniqueName;
-    }
+    // Read the file contents into a variable
+    $fileData = file_get_contents($profilePhotoFile['tmp_name']);
+    // Escape for PostgreSQL
+    $escapedData = pg_escape_bytea($fileData);
+    $profile_picture_data = $escapedData; 
 }
 
-// Hash the password using bcrypt
+// 4) Hash the password
 $hashedPassword = password_hash($password, PASSWORD_BCRYPT);
 
-// Check if the email already exists
+// 5) Check if the email already exists
 $checkQuery = "SELECT user_id FROM collaboardtable_users WHERE email = $1";
 $checkResult = pg_query_params($conn, $checkQuery, [$email]);
 if (pg_num_rows($checkResult) > 0) {
@@ -95,20 +79,23 @@ if (pg_num_rows($checkResult) > 0) {
     exit();
 }
 
-// Insert the new user into collaboardtable_users
-$query = "INSERT INTO collaboardtable_users 
-          (username, first_name, last_name, email, password, years_of_experience, profile_picture)
-          VALUES ($1, $2, $3, $4, $5, $6, $7)
-          RETURNING user_id";
-$result = pg_query_params($conn, $query, [
+// 6) Insert new user, storing image as bytea with decode(..., 'escape')
+$query = "
+    INSERT INTO collaboardtable_users 
+    (username, first_name, last_name, email, password, years_of_experience, profile_picture)
+    VALUES ($1, $2, $3, $4, $5, $6, decode($7, 'escape'))
+    RETURNING user_id
+";
+$params = [
     $username,
     $first_name,
     $last_name,
     $email,
     $hashedPassword,
     $years_of_experience,
-    $profile_picture
-]);
+    $profile_picture_data // can be null if no file
+];
+$result = pg_query_params($conn, $query, $params);
 
 if ($result) {
     $row = pg_fetch_assoc($result);
