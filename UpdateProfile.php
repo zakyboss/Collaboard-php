@@ -25,69 +25,80 @@ try {
     $userId    = isset($_POST['userId']) ? intval($_POST['userId']) : 0;
     $firstName = isset($_POST['firstName']) ? trim($_POST['firstName']) : "";
     $lastName  = isset($_POST['lastName']) ? trim($_POST['lastName']) : "";
-
+    
     // Basic validation
     if ($userId <= 0) {
         http_response_code(400);
         throw new Exception("Invalid user ID.");
     }
-
+    
     // 2) Handle new profile photo if provided
-    $uploadedFileContent = null;
+    $hasProfilePhoto = false;
+    $fileData = null;
+    
     if (isset($_FILES['profilePhoto']) && $_FILES['profilePhoto']['error'] === UPLOAD_ERR_OK) {
-        $tmpName  = $_FILES['profilePhoto']['tmp_name'];
+        $tmpName = $_FILES['profilePhoto']['tmp_name'];
         $fileData = file_get_contents($tmpName);
-
-        // Escape for PostgreSQL
-        $uploadedFileContent = pg_escape_bytea($conn, $fileData);
+        $hasProfilePhoto = true;
     }
-
-    // 3) Build the SQL with pg_query_params
-    // If a new photo is uploaded, update profile_picture
-    if ($uploadedFileContent !== null) {
+    
+    // 3) Build and execute the SQL query
+    if ($hasProfilePhoto) {
+        // With profile photo update
         $query = "
             UPDATE collaboardtable_users
-            SET first_name       = $2,
-                last_name        = $3,
-                profile_picture  = decode($4, 'escape')
-            WHERE user_id        = $1
+            SET first_name = $1,
+                last_name = $2,
+                profile_picture = $3
+            WHERE user_id = $4
+            RETURNING user_id
         ";
-        $params = [
-            $userId,
-            $firstName,
-            $lastName,
-            $uploadedFileContent // escaped bytea data
-        ];
+        
+        $result = pg_query_params(
+            $conn,
+            $query,
+            [$firstName, $lastName, $fileData, $userId]
+        );
     } else {
-        // No new photo: don't update profile_picture
+        // Without profile photo update
         $query = "
             UPDATE collaboardtable_users
-            SET first_name = $2,
-                last_name  = $3
-            WHERE user_id  = $1
+            SET first_name = $1,
+                last_name = $2
+            WHERE user_id = $3
+            RETURNING user_id
         ";
-        $params = [
-            $userId,
-            $firstName,
-            $lastName
-        ];
+        
+        $result = pg_query_params(
+            $conn,
+            $query,
+            [$firstName, $lastName, $userId]
+        );
     }
-
-    // 4) Execute the query
-    $result = pg_query_params($conn, $query, $params);
+    
     if (!$result) {
         http_response_code(500);
         throw new Exception("Failed to update profile: " . pg_last_error($conn));
     }
-
+    
+    // Check if any rows were affected
+    $rowsAffected = pg_affected_rows($result);
+    if ($rowsAffected === 0) {
+        throw new Exception("No user found with ID: $userId");
+    }
+    
     // If the query succeeded
     $response["success"] = true;
     $response["message"] = "Profile updated successfully!";
-
+    
 } catch (Exception $e) {
     // If anything goes wrong, catch the exception and set an error message
     $response["success"] = false;
     $response["message"] = $e->getMessage();
+    $response["details"] = pg_last_error($conn);
+    
+    // Log the error for server-side debugging
+    error_log("Profile update error: " . $e->getMessage() . " - " . pg_last_error($conn));
 }
 
 // 5) Return JSON
