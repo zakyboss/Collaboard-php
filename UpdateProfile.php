@@ -20,13 +20,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 $response = ["success" => false, "message" => ""];
 
 try {
-    // Log incoming request data for debugging (remove in production)
-    $requestLog = [
-        'POST' => $_POST,
-        'FILES' => isset($_FILES) ? array_keys($_FILES) : []
-    ];
-    file_put_contents('update_profile_log.txt', date('Y-m-d H:i:s') . ': ' . json_encode($requestLog) . PHP_EOL, FILE_APPEND);
-
     // 1) Include database connection
     require_once 'db.php';
     if (!$conn) {
@@ -76,25 +69,28 @@ try {
     );
 
     if ($hasPhotoUpload) {
-        // Read file data
+        // Read file data and escape it properly for PostgreSQL
         $tmpName = $_FILES['profilePhoto']['tmp_name'];
         $fileData = file_get_contents($tmpName);
         if ($fileData === false) {
             throw new Exception("Failed to read uploaded file");
         }
-
-        // Build query (storing binary directly in the bytea column)
+        
+        // Use proper escaping for binary data in PostgreSQL
+        $escapedBinaryData = pg_escape_bytea($conn, $fileData);
+        
+        // Build query using proper escaping for bytea data
         $query = "
             UPDATE collaboardtable_users
             SET first_name = $1,
                 last_name = $2,
-                profile_picture = $3
-            WHERE user_id = $4
+                profile_picture = '$escapedBinaryData'
+            WHERE user_id = $3
         ";
+        
         $result = pg_query_params($conn, $query, [
             $firstName,
             $lastName,
-            $fileData,   // Store raw binary data directly
             $userId
         ]);
     } else {
@@ -135,12 +131,9 @@ try {
     http_response_code(400); // Set appropriate HTTP status code
     $response["success"] = false;
     $response["message"] = $e->getMessage();
-    
-    // Log errors for debugging (remove in production)
-    file_put_contents('update_profile_errors.txt', date('Y-m-d H:i:s') . ': ' . $e->getMessage() . PHP_EOL, FILE_APPEND);
 }
 
-// Return JSON
+// Return JSON response
 echo json_encode($response);
 
 // Close connection
