@@ -2,8 +2,8 @@
 // File: UpdateProfile.php
 
 // For development, show errors; in production, set these to 0
-ini_set('display_errors', 1);
-ini_set('display_startup_errors', 1);
+ini_set('display_errors', 0); // Changed to 0 for production
+ini_set('display_startup_errors', 0); // Changed to 0 for production
 error_reporting(E_ALL);
 
 // Set CORS & JSON headers
@@ -20,6 +20,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 $response = ["success" => false, "message" => ""];
 
 try {
+    // Log incoming request data for debugging (remove in production)
+    $requestLog = [
+        'POST' => $_POST,
+        'FILES' => isset($_FILES) ? array_keys($_FILES) : []
+    ];
+    file_put_contents('update_profile_log.txt', date('Y-m-d H:i:s') . ': ' . json_encode($requestLog) . PHP_EOL, FILE_APPEND);
+
     // 1) Include database connection
     require_once 'db.php';
     if (!$conn) {
@@ -27,13 +34,19 @@ try {
     }
 
     // 2) Grab form data (multipart/form-data)
-    $userId    = isset($_POST['userId']) ? intval($_POST['userId']) : 0;
+    $userId = isset($_POST['userId']) ? $_POST['userId'] : null;
+    
+    // Ensure userId is a valid integer
+    if (!is_numeric($userId)) {
+        throw new Exception("User ID must be a number, received: " . gettype($userId));
+    }
+    
+    $userId = intval($userId);
     $firstName = isset($_POST['firstName']) ? trim($_POST['firstName']) : "";
-    $lastName  = isset($_POST['lastName']) ? trim($_POST['lastName']) : "";
+    $lastName = isset($_POST['lastName']) ? trim($_POST['lastName']) : "";
 
     // Validate user ID
     if ($userId <= 0) {
-        http_response_code(400);
         throw new Exception("Invalid user ID: $userId");
     }
 
@@ -64,7 +77,7 @@ try {
 
     if ($hasPhotoUpload) {
         // Read file data
-        $tmpName  = $_FILES['profilePhoto']['tmp_name'];
+        $tmpName = $_FILES['profilePhoto']['tmp_name'];
         $fileData = file_get_contents($tmpName);
         if ($fileData === false) {
             throw new Exception("Failed to read uploaded file");
@@ -74,9 +87,9 @@ try {
         $query = "
             UPDATE collaboardtable_users
             SET first_name = $1,
-                last_name  = $2,
+                last_name = $2,
                 profile_picture = $3
-            WHERE user_id  = $4
+            WHERE user_id = $4
         ";
         $result = pg_query_params($conn, $query, [
             $firstName,
@@ -89,8 +102,8 @@ try {
         $query = "
             UPDATE collaboardtable_users
             SET first_name = $1,
-                last_name  = $2
-            WHERE user_id  = $3
+                last_name = $2
+            WHERE user_id = $3
         ";
         $result = pg_query_params($conn, $query, [
             $firstName,
@@ -106,19 +119,25 @@ try {
 
     $rowsAffected = pg_affected_rows($result);
     if ($rowsAffected === 0) {
-        // Not necessarily an error if nothing changed, but let's throw an exception
-        throw new Exception("No changes were made to the profile");
+        // Not necessarily an error if nothing changed
+        $response["success"] = true;
+        $response["message"] = "No changes were made to the profile";
+    } else {
+        // 6) Success
+        $response["success"] = true;
+        $response["message"] = "Profile updated successfully!";
     }
-
-    // 6) Success
-    $response["success"] = true;
-    $response["message"] = "Profile updated successfully!";
-    $response["userId"]  = $userId;
+    
+    $response["userId"] = $userId;
 
 } catch (Exception $e) {
     // Catch & handle any exceptions
+    http_response_code(400); // Set appropriate HTTP status code
     $response["success"] = false;
     $response["message"] = $e->getMessage();
+    
+    // Log errors for debugging (remove in production)
+    file_put_contents('update_profile_errors.txt', date('Y-m-d H:i:s') . ': ' . $e->getMessage() . PHP_EOL, FILE_APPEND);
 }
 
 // Return JSON
