@@ -26,6 +26,7 @@ try {
     $firstName = isset($_POST['firstName']) ? trim($_POST['firstName']) : "";
     $lastName  = isset($_POST['lastName']) ? trim($_POST['lastName']) : "";
 
+    // Basic validation
     if ($userId <= 0) {
         http_response_code(400);
         throw new Exception("Invalid user ID.");
@@ -34,7 +35,7 @@ try {
     // 2) Handle new profile photo if provided
     $uploadedFileContent = null;
     if (isset($_FILES['profilePhoto']) && $_FILES['profilePhoto']['error'] === UPLOAD_ERR_OK) {
-        $tmpName = $_FILES['profilePhoto']['tmp_name'];
+        $tmpName  = $_FILES['profilePhoto']['tmp_name'];
         $fileData = file_get_contents($tmpName);
 
         // Escape for PostgreSQL
@@ -42,14 +43,14 @@ try {
     }
 
     // 3) Build the SQL with pg_query_params
+    // If a new photo is uploaded, update profile_picture
     if ($uploadedFileContent !== null) {
-        // If a new photo is uploaded, update profile_picture
         $query = "
             UPDATE collaboardtable_users
-            SET first_name = $2,
-                last_name  = $3,
-                profile_picture = decode($4, 'escape')
-            WHERE user_id = $1
+            SET first_name       = $2,
+                last_name        = $3,
+                profile_picture  = decode($4, 'escape')
+            WHERE user_id        = $1
         ";
         $params = [
             $userId,
@@ -58,12 +59,12 @@ try {
             $uploadedFileContent // escaped bytea data
         ];
     } else {
-        // No new photo: don't touch profile_picture
+        // No new photo: don't update profile_picture
         $query = "
             UPDATE collaboardtable_users
             SET first_name = $2,
                 last_name  = $3
-            WHERE user_id = $1
+            WHERE user_id  = $1
         ";
         $params = [
             $userId,
@@ -82,7 +83,9 @@ try {
     // If the query succeeded
     $response["success"] = true;
     $response["message"] = "Profile updated successfully!";
+
 } catch (Exception $e) {
+    // If anything goes wrong, catch the exception and set an error message
     $response["success"] = false;
     $response["message"] = $e->getMessage();
 }
