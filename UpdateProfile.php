@@ -124,7 +124,12 @@ try {
         $response["message"] = "Profile updated successfully!";
     }
     
-    $response["userId"] = $userId;
+    // Include updated user info in response
+    $response["user"] = [
+        "id" => $userId,
+        "firstName" => $firstName,
+        "lastName" => $lastName
+    ];
 
 } catch (Exception $e) {
     // Catch & handle any exceptions
@@ -141,3 +146,4 @@ if (isset($conn)) {
     pg_close($conn);
 }
 exit;
+?>
